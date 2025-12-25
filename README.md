@@ -1,0 +1,177 @@
+# k3s Cluster Security Hardening Playbook
+
+This Ansible playbook hardens security settings for Ubuntu Server 24 systems running a k3s cluster.
+
+## Features
+
+- **Firewall Configuration (UFW)**: Configures firewall rules for SSH and k3s required ports
+- **SSH Hardening**: Disables root login, password authentication, and configures secure SSH settings
+- **Fail2ban**: Protects against brute-force attacks
+- **Automatic Security Updates**: Configures unattended-upgrades for automatic security patches
+- **System Hardening**: Network security settings, file permissions, and password policies
+- **k3s Port Configuration**: Pre-configured firewall rules for k3s master and worker communication
+
+## Prerequisites
+
+1. Ansible installed on your control machine (Ansible 2.9+)
+2. SSH access to both servers (master and worker)
+3. Sudo/root privileges on target servers
+4. Python 3 installed on target servers
+
+## Installation
+
+1. Install Ansible (if not already installed):
+```bash
+sudo apt update
+sudo apt install ansible -y
+```
+
+2. Install required Ansible collections:
+```bash
+ansible-galaxy collection install -r requirements.txt
+```
+
+## Configuration
+
+1. **Edit the inventory file** (`inventory.ini`):
+   - Replace `YOUR_MASTER_IP` with your k3s master server's public IP
+   - Replace `YOUR_WORKER_IP` with your k3s worker server's public IP
+   - Update `ansible_user` if you're not using root (though root is recommended for initial setup)
+
+2. **Configure SSH access**:
+   - Ensure you can SSH into both servers without password prompts
+   - Or set up SSH keys: `ssh-copy-id root@YOUR_MASTER_IP` and `ssh-copy-id root@YOUR_WORKER_IP`
+
+3. **Review playbook variables** (in `security-hardening.yml`):
+   - Adjust firewall ports if your k3s setup uses different ports
+   - Modify SSH port if you're using a non-standard port
+   - Adjust Fail2ban settings if needed
+
+## Important Notes Before Running
+
+⚠️ **WARNING**: This playbook will:
+- Disable password authentication for SSH (only key-based auth will work)
+- Disable root login via SSH
+- Enable UFW firewall (make sure SSH port is accessible!)
+- Restart SSH service (you may be disconnected briefly)
+
+**Before running, ensure:**
+1. You have SSH key-based authentication set up
+2. You have an alternative way to access the servers (console access recommended)
+3. You've tested SSH key access works
+
+## Usage
+
+### Test connectivity first:
+```bash
+ansible all -m ping
+```
+
+### Run the playbook:
+```bash
+ansible-playbook security-hardening.yml
+```
+
+### Run on specific hosts:
+```bash
+# Only master
+ansible-playbook security-hardening.yml --limit k3s_master
+
+# Only workers
+ansible-playbook security-hardening.yml --limit k3s_workers
+```
+
+### Dry run (check mode):
+```bash
+ansible-playbook security-hardening.yml --check
+```
+
+## What Gets Configured
+
+### Firewall (UFW)
+- Default deny incoming, allow outgoing
+- Allows SSH (port 22)
+- Allows k3s API server (port 6443)
+- Allows k3s Kubelet API (port 10250)
+- Allows Flannel VXLAN (port 8472 UDP)
+- Allows Flannel Wireguard (port 51820 UDP, if used)
+
+### SSH Security
+- Root login disabled
+- Password authentication disabled
+- Key-based authentication only
+- Max authentication tries: 3
+- Connection timeout settings
+- Security banner
+
+### Fail2ban
+- SSH brute-force protection
+- 1-hour ban time
+- 5 max retries in 10 minutes
+
+### System Updates
+- Automatic security updates enabled
+- Automatic cleanup of old packages
+
+### Network Security
+- IP forwarding enabled (required for k3s)
+- ICMP redirects disabled
+- TCP SYN cookies enabled
+- IPv6 security settings
+
+### Additional Security
+- Restrictive file permissions
+- Password policies
+- Unnecessary services disabled
+
+## Post-Deployment
+
+After running the playbook:
+
+1. **Verify SSH access still works** with your SSH key
+2. **Check firewall status**: `sudo ufw status verbose`
+3. **Check Fail2ban status**: `sudo fail2ban-client status`
+4. **Verify k3s cluster connectivity** between master and worker
+5. **Review logs**: Check `/var/log/auth.log` for any issues
+
+## Troubleshooting
+
+### Can't SSH after running playbook
+- Use console access to the server
+- Check SSH configuration: `sudo sshd -T | grep -E "(PermitRootLogin|PasswordAuthentication)"`
+- Temporarily allow password auth if needed
+
+### k3s nodes can't communicate
+- Check firewall rules: `sudo ufw status numbered`
+- Verify k3s ports are open: `sudo ufw allow 6443/tcp`
+- Check if IP forwarding is enabled: `sysctl net.ipv4.ip_forward`
+
+### Fail2ban blocking legitimate access
+- Check banned IPs: `sudo fail2ban-client status sshd`
+- Unban an IP: `sudo fail2ban-client set sshd unbanip <IP_ADDRESS>`
+
+## Customization
+
+You can customize the playbook by modifying variables at the top of `security-hardening.yml`:
+
+- `ssh_port`: Change SSH port (remember to update firewall rules)
+- `ufw_allowed_ports`: Add/remove firewall rules
+- `fail2ban_max_retry`: Adjust brute-force protection sensitivity
+- `automatic_reboot`: Enable/disable automatic reboots after updates
+
+## Security Best Practices
+
+After running this playbook, consider:
+
+1. **Regular security audits**: Review logs regularly
+2. **Keep systems updated**: The playbook enables automatic updates
+3. **Monitor Fail2ban**: Check for attack patterns
+4. **Backup configurations**: Keep backups of important configs
+5. **Use VPN**: Consider setting up a VPN instead of exposing k3s API publicly
+6. **k3s TLS**: Ensure k3s is using proper TLS certificates
+7. **Network policies**: Configure Kubernetes network policies for pod-level security
+
+## License
+
+This playbook is provided as-is for security hardening purposes.
+

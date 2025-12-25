@@ -1,0 +1,5 @@
+# Ansible Collections (install with: ansible-galaxy collection install -r requirements.txt)
+collections:
+  - name: ansible.posix
+    version: ">=1.5.0"
+

@@ -1,0 +1,36 @@
+[DEFAULT]
+# Ban hosts for one hour
+bantime = {{ fail2ban_ban_time }}
+
+# Override /etc/fail2ban/jail.d/00-firewalld.conf:
+banaction = iptables-multiport
+
+# A host is banned if it has generated "maxretry" during "findtime" seconds
+findtime = {{ fail2ban_find_time }}
+maxretry = {{ fail2ban_max_retry }}
+
+# Destination email address used solely for the interpolations in
+# jail.{conf,local,d/*} configuration files.
+destemail = root@localhost
+
+# Sender email address used solely for some actions
+sendername = Fail2Ban
+
+# Email action
+action = %(action_)s
+
+[sshd]
+enabled = true
+port = {{ ssh_port }}
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = {{ fail2ban_max_retry }}
+bantime = {{ fail2ban_ban_time }}
+
+[sshd-ddos]
+enabled = true
+port = {{ ssh_port }}
+filter = sshd-ddos
+logpath = /var/log/auth.log
+maxretry = 10
+

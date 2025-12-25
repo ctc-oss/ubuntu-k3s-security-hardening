@@ -1,0 +1,283 @@
+---
+- name: Security Hardening for Ubuntu 24 k3s Cluster
+  hosts: all
+  become: yes
+  vars:
+    # SSH Configuration
+    ssh_port: 22
+    ssh_permit_root_login: "no"
+    ssh_password_authentication: "no"
+    ssh_pubkey_authentication: "yes"
+    ssh_max_auth_tries: 3
+    ssh_client_alive_interval: 300
+    ssh_client_alive_count_max: 2
+    
+    # Firewall Configuration
+    ufw_default_incoming: deny
+    ufw_default_outgoing: allow
+    ufw_allowed_ports:
+      - port: "{{ ssh_port }}"
+        proto: tcp
+        comment: "SSH"
+      - port: "6443"
+        proto: tcp
+        comment: "k3s API Server"
+      - port: "10250"
+        proto: tcp
+        comment: "k3s Kubelet API"
+      - port: "8472"
+        proto: udp
+        comment: "Flannel VXLAN"
+      - port: "51820"
+        proto: udp
+        comment: "Flannel Wireguard (if used)"
+    
+    # Fail2ban Configuration
+    fail2ban_enabled: true
+    fail2ban_ban_time: 3600
+    fail2ban_find_time: 600
+    fail2ban_max_retry: 5
+    
+    # System Updates
+    automatic_reboot: false
+    automatic_reboot_time: "03:00"
+    
+    # Additional Security
+    install_security_tools: true
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install essential security packages
+      apt:
+        name:
+          - ufw
+          - fail2ban
+          - unattended-upgrades
+          - apt-listchanges
+          - logwatch
+          - rkhunter
+          - aide
+        state: present
+
+    - name: Configure automatic security updates
+      template:
+        src: 50unattended-upgrades.j2
+        dest: /etc/apt/apt.conf.d/50unattended-upgrades
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart unattended-upgrades
+
+    - name: Enable automatic updates
+      lineinfile:
+        path: /etc/apt/apt.conf.d/20auto-upgrades
+        line: "{{ item }}"
+        create: yes
+      loop:
+        - 'APT::Periodic::Update-Package-Lists "1";'
+        - 'APT::Periodic::Unattended-Upgrade "1";'
+        - 'APT::Periodic::Download-Upgradeable-Packages "1";'
+        - 'APT::Periodic::AutocleanInterval "7";'
+
+    - name: Configure SSH daemon security settings
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        backup: yes
+      loop:
+        - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin {{ ssh_permit_root_login }}' }
+        - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication {{ ssh_password_authentication }}' }
+        - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication {{ ssh_pubkey_authentication }}' }
+        - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries {{ ssh_max_auth_tries }}' }
+        - { regexp: '^#?ClientAliveInterval', line: 'ClientAliveInterval {{ ssh_client_alive_interval }}' }
+        - { regexp: '^#?ClientAliveCountMax', line: 'ClientAliveCountMax {{ ssh_client_alive_count_max }}' }
+        - { regexp: '^#?Protocol', line: 'Protocol 2' }
+        - { regexp: '^#?X11Forwarding', line: 'X11Forwarding no' }
+        - { regexp: '^#?PermitEmptyPasswords', line: 'PermitEmptyPasswords no' }
+        - { regexp: '^#?ChallengeResponseAuthentication', line: 'ChallengeResponseAuthentication no' }
+        - { regexp: '^#?UsePAM', line: 'UsePAM yes' }
+        - { regexp: '^#?AllowTcpForwarding', line: 'AllowTcpForwarding yes' }
+        - { regexp: '^#?Banner', line: 'Banner /etc/issue.net' }
+      notify: restart ssh
+
+    - name: Create SSH banner
+      copy:
+        content: |
+          ******************************************************************************
+          WARNING: Unauthorized access to this system is forbidden and will be
+          prosecuted by law. By accessing this system you agree to your actions
+          being monitored and logged.
+          ******************************************************************************
+        dest: /etc/issue.net
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Configure UFW defaults
+      ufw:
+        state: enabled
+        direction: "{{ item.direction }}"
+        policy: "{{ item.policy }}"
+      loop:
+        - { direction: 'incoming', policy: '{{ ufw_default_incoming }}' }
+        - { direction: 'outgoing', policy: '{{ ufw_default_outgoing }}' }
+        - { direction: 'routed', policy: 'deny' }
+
+    - name: Allow SSH through firewall
+      ufw:
+        rule: allow
+        port: "{{ item.port }}"
+        proto: "{{ item.proto }}"
+        comment: "{{ item.comment }}"
+      loop: "{{ ufw_allowed_ports }}"
+
+    - name: Allow established and related connections
+      ufw:
+        rule: allow
+        state: established,related
+
+    - name: Configure Fail2ban
+      template:
+        src: jail.local.j2
+        dest: /etc/fail2ban/jail.local
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart fail2ban
+
+    - name: Enable and start Fail2ban service
+      systemd:
+        name: fail2ban
+        enabled: yes
+        state: started
+
+    - name: Configure sysctl security settings
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        sysctl_set: yes
+        reload: yes
+      loop:
+        - { name: 'net.ipv4.ip_forward', value: '1' }  # Required for k3s networking
+        - { name: 'net.ipv4.conf.all.send_redirects', value: '0' }
+        - { name: 'net.ipv4.conf.default.send_redirects', value: '0' }
+        - { name: 'net.ipv4.conf.all.accept_redirects', value: '0' }
+        - { name: 'net.ipv4.conf.default.accept_redirects', value: '0' }
+        - { name: 'net.ipv4.conf.all.secure_redirects', value: '0' }
+        - { name: 'net.ipv4.conf.default.secure_redirects', value: '0' }
+        - { name: 'net.ipv4.ip_forward', value: '1' }
+        - { name: 'net.ipv4.conf.all.log_martians', value: '1' }
+        - { name: 'net.ipv4.conf.default.log_martians', value: '1' }
+        - { name: 'net.ipv4.icmp_echo_ignore_broadcasts', value: '1' }
+        - { name: 'net.ipv4.icmp_ignore_bogus_error_responses', value: '1' }
+        - { name: 'net.ipv4.conf.all.rp_filter', value: '1' }
+        - { name: 'net.ipv4.conf.default.rp_filter', value: '1' }
+        - { name: 'net.ipv4.tcp_syncookies', value: '1' }
+        - { name: 'net.ipv6.conf.all.accept_redirects', value: '0' }
+        - { name: 'net.ipv6.conf.default.accept_redirects', value: '0' }
+        - { name: 'net.ipv6.conf.all.accept_ra', value: '0' }
+        - { name: 'net.ipv6.conf.default.accept_ra', value: '0' }
+
+    - name: Make sysctl settings persistent
+      copy:
+        content: |
+          # Security hardening settings
+          net.ipv4.conf.all.send_redirects = 0
+          net.ipv4.conf.default.send_redirects = 0
+          net.ipv4.conf.all.accept_redirects = 0
+          net.ipv4.conf.default.accept_redirects = 0
+          net.ipv4.conf.all.secure_redirects = 0
+          net.ipv4.conf.default.secure_redirects = 0
+          net.ipv4.ip_forward = 1
+          net.ipv4.conf.all.log_martians = 1
+          net.ipv4.conf.default.log_martians = 1
+          net.ipv4.icmp_echo_ignore_broadcasts = 1
+          net.ipv4.icmp_ignore_bogus_error_responses = 1
+          net.ipv4.conf.all.rp_filter = 1
+          net.ipv4.conf.default.rp_filter = 1
+          net.ipv4.tcp_syncookies = 1
+          net.ipv6.conf.all.accept_redirects = 0
+          net.ipv6.conf.default.accept_redirects = 0
+          net.ipv6.conf.all.accept_ra = 0
+          net.ipv6.conf.default.accept_ra = 0
+        dest: /etc/sysctl.d/99-security-hardening.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Disable unnecessary services
+      systemd:
+        name: "{{ item }}"
+        enabled: no
+        state: stopped
+      loop:
+        - bluetooth
+        - avahi-daemon
+      ignore_errors: yes
+
+    - name: Set restrictive file permissions on sensitive files
+      file:
+        path: "{{ item.path }}"
+        mode: "{{ item.mode }}"
+        owner: root
+        group: root
+      loop:
+        - { path: '/etc/passwd', mode: '0644' }
+        - { path: '/etc/shadow', mode: '0640' }
+        - { path: '/etc/group', mode: '0644' }
+        - { path: '/etc/gshadow', mode: '0640' }
+        - { path: '/etc/sudoers', mode: '0440' }
+
+    - name: Configure password policy
+      pam_pwquality:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+      loop:
+        - { name: 'minlen', value: '12' }
+        - { name: 'minclass', value: '3' }
+        - { name: 'maxrepeat', value: '3' }
+        - { name: 'maxsequence', value: '4' }
+        - { name: 'maxclassrepeat', value: '3' }
+        - { name: 'gecoscheck', value: '1' }
+        - { name: 'dictcheck', value: '1' }
+      ignore_errors: yes  # May not be available on all systems
+
+    - name: Set password expiration policy
+      lineinfile:
+        path: /etc/login.defs
+        regexp: "^{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - { regexp: '^PASS_MAX_DAYS', line: 'PASS_MAX_DAYS 90' }
+        - { regexp: '^PASS_MIN_DAYS', line: 'PASS_MIN_DAYS 7' }
+        - { regexp: '^PASS_WARN_AGE', line: 'PASS_WARN_AGE 14' }
+
+    - name: Initialize AIDE database (first run only)
+      command: aideinit
+      args:
+        creates: /var/lib/aide/aide.db.new
+      ignore_errors: yes
+
+  handlers:
+    - name: restart ssh
+      systemd:
+        name: sshd
+        state: restarted
+
+    - name: restart fail2ban
+      systemd:
+        name: fail2ban
+        state: restarted
+
+    - name: restart unattended-upgrades
+      systemd:
+        name: unattended-upgrades
+        state: restarted
+

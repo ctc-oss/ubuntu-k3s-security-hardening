@@ -1,0 +1,8 @@
+*.retry
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+

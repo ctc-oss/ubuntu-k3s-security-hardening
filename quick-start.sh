@@ -37,19 +37,21 @@ echo ""
 
 # Install Ansible collections
 echo "Installing Ansible collections..."
-ansible-galaxy collection install -r requirements.txt
+ansible-galaxy collection install -r collections.yml
 echo "✅ Collections installed"
 echo ""
 
 # Test connectivity
 echo "Testing connectivity to servers..."
-if ansible all -m ping; then
+echo "Note: You may be prompted for sudo password if passwordless sudo is not configured."
+if ansible all -m ping --ask-become-pass; then
     echo "✅ All servers are reachable"
 else
     echo "❌ Cannot reach one or more servers. Please check:"
     echo "   - SSH access is configured"
     echo "   - IP addresses in inventory.ini are correct"
     echo "   - SSH keys are set up (or password authentication is enabled)"
+    echo "   - Sudo password is correct (or passwordless sudo is configured)"
     exit 1
 fi
 
@@ -73,7 +75,8 @@ fi
 
 echo ""
 echo "Running security hardening playbook..."
-ansible-playbook security-hardening.yml
+echo "Note: You may be prompted for sudo password if passwordless sudo is not configured."
+ansible-playbook security-hardening.yml --ask-become-pass
 
 echo ""
 echo "=========================================="

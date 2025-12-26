@@ -136,10 +136,9 @@
         comment: "{{ item.comment }}"
       loop: "{{ ufw_allowed_ports }}"
 
-    - name: Allow established and related connections
-      ufw:
-        rule: allow
-        state: established,related
+    # Note: UFW automatically allows established and related connections by default
+    # This is handled by UFW's default connection tracking behavior
+    # No explicit rule needed
 
     - name: Configure Fail2ban
       template:
@@ -234,11 +233,13 @@
         - { path: '/etc/gshadow', mode: '0640' }
         - { path: '/etc/sudoers', mode: '0440' }
 
-    - name: Configure password policy
-      pam_pwquality:
-        name: "{{ item.name }}"
-        value: "{{ item.value }}"
-        state: present
+    - name: Configure password policy (pwquality.conf)
+      lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: "^{{ item.name }} ="
+        line: "{{ item.name }} = {{ item.value }}"
+        create: yes
+        backup: yes
       loop:
         - { name: 'minlen', value: '12' }
         - { name: 'minclass', value: '3' }

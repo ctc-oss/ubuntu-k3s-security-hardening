@@ -17,6 +17,7 @@ This Ansible playbook hardens security settings for Ubuntu Server 24 systems run
 2. SSH access to both servers (master and worker)
 3. Sudo/root privileges on target servers
 4. Python 3 installed on target servers
+5. **Sudo access**: Either passwordless sudo configured, or you'll need to provide sudo password when prompted
 
 ## Installation
 
@@ -28,7 +29,7 @@ sudo apt install ansible -y
 
 2. Install required Ansible collections:
 ```bash
-ansible-galaxy collection install -r requirements.txt
+ansible-galaxy collection install -r collections.yml
 ```
 
 ## Configuration
@@ -40,7 +41,15 @@ ansible-galaxy collection install -r requirements.txt
 
 2. **Configure SSH access**:
    - Ensure you can SSH into both servers without password prompts
-   - Or set up SSH keys: `ssh-copy-id root@YOUR_MASTER_IP` and `ssh-copy-id root@YOUR_WORKER_IP`
+   - Or set up SSH keys: `ssh-copy-id admin@YOUR_MASTER_IP` and `ssh-copy-id admin@YOUR_WORKER_IP`
+
+3. **Configure sudo access** (recommended for automation):
+   - Option A (Recommended): Set up passwordless sudo on target servers:
+     ```bash
+     # On each target server, run:
+     echo "admin ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/admin
+     ```
+   - Option B: Use `--ask-become-pass` flag when running ansible commands (you'll be prompted for sudo password)
 
 3. **Review playbook variables** (in `security-hardening.yml`):
    - Adjust firewall ports if your k3s setup uses different ports
@@ -64,12 +73,20 @@ ansible-galaxy collection install -r requirements.txt
 
 ### Test connectivity first:
 ```bash
+# If passwordless sudo is configured:
 ansible all -m ping
+
+# If sudo password is required:
+ansible all -m ping --ask-become-pass
 ```
 
 ### Run the playbook:
 ```bash
+# If passwordless sudo is configured:
 ansible-playbook security-hardening.yml
+
+# If sudo password is required:
+ansible-playbook security-hardening.yml --ask-become-pass
 ```
 
 ### Run on specific hosts:

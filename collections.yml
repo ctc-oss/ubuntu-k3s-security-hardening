@@ -1,0 +1,7 @@
+# Ansible Collections (install with: ansible-galaxy collection install -r collections.yml)
+collections:
+  - name: ansible.posix
+    version: ">=1.5.0"
+  - name: community.general
+    version: ">=1.0.0"
+

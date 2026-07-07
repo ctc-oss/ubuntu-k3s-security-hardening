@@ -1,6 +1,6 @@
 # k3s Cluster Security Hardening Playbook
 
-This Ansible playbook hardens security settings for Ubuntu Server 24 systems running a k3s cluster.
+This Ansible playbook hardens security settings for Ubuntu Server 22/24 systems running a k3s cluster.
 
 ## Features
 
@@ -10,6 +10,7 @@ This Ansible playbook hardens security settings for Ubuntu Server 24 systems run
 - **Automatic Security Updates**: Configures unattended-upgrades for automatic security patches
 - **System Hardening**: Network security settings, file permissions, and password policies
 - **k3s Port Configuration**: Pre-configured firewall rules for k3s master and worker communication
+- **k3s Control Plane Hardening**: Configures audit logging, API server TLS and auth settings, controller/scheduler hardening args, and kubelet hardening drop-in config
 
 ## Prerequisites
 
@@ -35,26 +36,27 @@ ansible-galaxy collection install -r collections.yml
 ## Configuration
 
 1. **Edit the inventory file** (`inventory.ini`):
-   - Replace `YOUR_MASTER_IP` with your k3s master server's public IP
-   - Replace `YOUR_WORKER_IP` with your k3s worker server's public IP
-   - Update `ansible_user` if you're not using root (though root is recommended for initial setup)
+  - Replace `IP` with each server's real IP address
+  - Update `ansible_user` if needed (default in inventory is `admin`)
+  - Add `ansible_ssh_private_key_file` if required for your environment
 
 2. **Configure SSH access**:
-   - Ensure you can SSH into both servers without password prompts
-   - Or set up SSH keys: `ssh-copy-id admin@YOUR_MASTER_IP` and `ssh-copy-id admin@YOUR_WORKER_IP`
+  - Ensure you can SSH into both servers without password prompts
+  - Or set up SSH keys for your target user
 
 3. **Configure sudo access** (recommended for automation):
-   - Option A (Recommended): Set up passwordless sudo on target servers:
-     ```bash
-     # On each target server, run:
-     echo "admin ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/admin
-     ```
-   - Option B: Use `--ask-become-pass` flag when running ansible commands (you'll be prompted for sudo password)
+  - Option A (Recommended): Set up passwordless sudo on target servers:
+    ```bash
+    # On each target server, run:
+    echo "admin ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/admin
+    ```
+  - Option B: Use `--ask-become-pass` flag when running ansible commands (you'll be prompted for sudo password)
 
-3. **Review playbook variables** (in `security-hardening.yml`):
-   - Adjust firewall ports if your k3s setup uses different ports
-   - Modify SSH port if you're using a non-standard port
-   - Adjust Fail2ban settings if needed
+4. **Review playbook variables** (in `security-hardening.yml`):
+  - Adjust firewall ports if your k3s setup uses different ports
+  - Modify SSH port if you're using a non-standard port
+  - Adjust Fail2ban settings if needed
+  - Review k3s hardening vars (`k3s_*`) for audit policy paths and component arguments
 
 ## Important Notes Before Running
 
@@ -63,6 +65,7 @@ ansible-galaxy collection install -r collections.yml
 - Disable root login via SSH
 - Enable UFW firewall (make sure SSH port is accessible!)
 - Restart SSH service (you may be disconnected briefly)
+- Apply k3s API server and kubelet hardening settings, then restart k3s
 
 **Before running, ensure:**
 1. You have SSH key-based authentication set up
@@ -103,6 +106,12 @@ ansible-playbook security-hardening.yml --limit k3s_workers
 ansible-playbook security-hardening.yml --check
 ```
 
+### Quick start script:
+```bash
+chmod +x quick-start.sh
+./quick-start.sh
+```
+
 ## What Gets Configured
 
 ### Firewall (UFW)
@@ -136,6 +145,18 @@ ansible-playbook security-hardening.yml --check
 - TCP SYN cookies enabled
 - IPv6 security settings
 
+### k3s Hardening
+- Audit policy file deployment (`/etc/rancher/k3s/audit-policy.yaml`)
+- Audit log directory/file setup (`/var/log/k3s/audit.log`)
+- API server hardening args:
+  - TLS minimum version
+  - RBAC/authorization settings
+  - TLS cipher suites
+  - kubelet client certificate/key args
+- Controller manager and scheduler hardening args
+- Kubelet hardening drop-in (`10-security-hardening.conf`)
+- k3s service env updates in `/etc/systemd/system/k3s.service.env`
+
 ### Additional Security
 - Restrictive file permissions
 - Password policies
@@ -149,7 +170,12 @@ After running the playbook:
 2. **Check firewall status**: `sudo ufw status verbose`
 3. **Check Fail2ban status**: `sudo fail2ban-client status`
 4. **Verify k3s cluster connectivity** between master and worker
-5. **Review logs**: Check `/var/log/auth.log` for any issues
+5. **Verify k3s hardening artifacts**:
+  - `sudo systemctl status k3s`
+  - `sudo ls -l /etc/systemd/system/k3s.service.env`
+  - `sudo ls -l /etc/rancher/k3s/audit-policy.yaml`
+  - `sudo ls -l /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/10-security-hardening.conf`
+6. **Review logs**: Check `/var/log/auth.log` and `/var/log/k3s/audit.log` for any issues
 
 ## Troubleshooting
 
@@ -175,6 +201,8 @@ You can customize the playbook by modifying variables at the top of `security-ha
 - `ufw_allowed_ports`: Add/remove firewall rules
 - `fail2ban_max_retry`: Adjust brute-force protection sensitivity
 - `automatic_reboot`: Enable/disable automatic reboots after updates
+- `k3s_service_env_path`, `k3s_audit_policy_path`, `k3s_audit_log_path`
+- `k3s_apiserver_*`, `k3s_controller_manager_args`, `k3s_scheduler_args`
 
 ## Security Best Practices
 
@@ -191,4 +219,3 @@ After running this playbook, consider:
 ## License
 
 This playbook is provided as-is for security hardening purposes.
-

@@ -1,5 +1,5 @@
 ---
-- name: Security Hardening for Ubuntu 24 k3s Cluster
+- name: Security Hardening for k3s Cluster
   hosts: all
   become: yes
   vars:
@@ -11,7 +11,7 @@
     ssh_max_auth_tries: 3
     ssh_client_alive_interval: 300
     ssh_client_alive_count_max: 2
-    
+
     # Firewall Configuration
     ufw_default_incoming: deny
     ufw_default_outgoing: allow
@@ -31,19 +31,52 @@
       - port: "51820"
         proto: udp
         comment: "Flannel Wireguard (if used)"
-    
+
     # Fail2ban Configuration
     fail2ban_enabled: true
     fail2ban_ban_time: 3600
     fail2ban_find_time: 600
     fail2ban_max_retry: 5
-    
+
     # System Updates
     automatic_reboot: false
     automatic_reboot_time: "03:00"
-    
+
     # Additional Security
     install_security_tools: true
+
+    # k3s hardening configuration
+    k3s_service_env_path: /etc/systemd/system/k3s.service.env
+    k3s_kubelet_config_path: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/00-k3s-defaults.conf
+    k3s_kubelet_hardening_config_path: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/10-security-hardening.conf
+    k3s_audit_policy_path: /etc/rancher/k3s/audit-policy.yaml
+    k3s_audit_log_dir: /var/log/k3s
+    k3s_audit_log_path: "{{ k3s_audit_log_dir }}/audit.log"
+    k3s_apiserver_audit_args:
+      - --audit-policy-file={{ k3s_audit_policy_path }}
+      - --audit-log-path={{ k3s_audit_log_path }}
+      - --audit-log-maxage=30
+      - --audit-log-maxbackup=10
+      - --audit-log-maxsize=100
+    k3s_apiserver_kubelet_client_args:
+      - --kubelet-client-certificate=/var/lib/rancher/k3s/server/tls/client-kube-apiserver.crt
+      - --kubelet-client-key=/var/lib/rancher/k3s/server/tls/client-kube-apiserver.key
+    k3s_apiserver_hardening_args:
+      - --tls-min-version=VersionTLS12
+      - --authorization-mode=Node,RBAC
+      - --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+    k3s_controller_manager_args:
+      - --use-service-account-credentials=true
+      - --tls-min-version=VersionTLS12
+      - --bind-address=127.0.0.1
+      - --profiling=false
+    k3s_scheduler_args:
+      - --tls-min-version=VersionTLS12
+      - --bind-address=127.0.0.1
+
+    # # AIDE configuration
+    # aide_exclude_paths:
+    #   - '/Users($|/)'
 
   tasks:
     - name: Update apt cache
@@ -62,6 +95,111 @@
           - rkhunter
           - aide
         state: present
+
+    - name: Ensure k3s audit policy directory exists
+      file:
+        path: "{{ k3s_audit_policy_path | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags:
+        - severity_high
+        - severity_medium
+
+    - name: Ensure k3s audit log directory exists
+      file:
+        path: "{{ k3s_audit_log_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0750'
+      tags:
+        - severity_high
+        - severity_medium
+
+    - name: Ensure k3s audit log file exists
+      file:
+        path: "{{ k3s_audit_log_path }}"
+        state: touch
+        owner: root
+        group: root
+        mode: '0640'
+      tags:
+        - severity_high
+        - severity_medium
+
+    - name: Install k3s audit policy
+      copy:
+        dest: "{{ k3s_audit_policy_path }}"
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          apiVersion: audit.k8s.io/v1
+          kind: Policy
+          rules:
+            - level: RequestResponse
+      notify: restart k3s
+      tags:
+        - severity_high
+        - severity_medium
+
+    - name: Ensure k3s service environment file exists
+      file:
+        path: "{{ k3s_service_env_path }}"
+        state: touch
+        owner: root
+        group: root
+        mode: '0600'
+      tags:
+        - severity_high
+        - severity_medium
+
+    - name: Configure k3s API server audit arguments
+      lineinfile:
+        path: "{{ k3s_service_env_path }}"
+        regexp: '^K3S_KUBE_APISERVER_ARGS='
+        line: 'K3S_KUBE_APISERVER_ARGS="{{ (k3s_apiserver_audit_args + k3s_apiserver_kubelet_client_args + k3s_apiserver_hardening_args) | join(" ") }}"'
+      notify: restart k3s
+      tags:
+        - severity_high
+        - severity_medium
+
+    - name: Configure k3s controller manager arguments
+      lineinfile:
+        path: "{{ k3s_service_env_path }}"
+        regexp: '^K3S_KUBE_CONTROLLER_MANAGER_ARGS='
+        line: 'K3S_KUBE_CONTROLLER_MANAGER_ARGS="{{ k3s_controller_manager_args | join(" ") }}"'
+      notify: restart k3s
+      tags:
+        - severity_high
+        - severity_medium
+
+    - name: Configure k3s scheduler arguments
+      lineinfile:
+        path: "{{ k3s_service_env_path }}"
+        regexp: '^K3S_KUBE_SCHEDULER_ARGS='
+        line: 'K3S_KUBE_SCHEDULER_ARGS="{{ k3s_scheduler_args | join(" ") }}"'
+      notify: restart k3s
+      tags:
+        - severity_medium
+
+    - name: Install kubelet hardening drop-in
+      copy:
+        dest: "{{ k3s_kubelet_hardening_config_path }}"
+        owner: root
+        group: root
+        mode: '0600'
+        content: |
+          apiVersion: kubelet.config.k8s.io/v1beta1
+          kind: KubeletConfiguration
+          streamingConnectionIdleTimeout: 5m0s
+          protectKernelDefaults: true
+      notify: restart k3s
+      tags:
+        - severity_high
+        - severity_medium
 
     - name: Configure automatic security updates
       template:
@@ -260,6 +398,15 @@
         - { regexp: '^PASS_MIN_DAYS', line: 'PASS_MIN_DAYS 7' }
         - { regexp: '^PASS_WARN_AGE', line: 'PASS_WARN_AGE 14' }
 
+    - name: Configure AIDE exclude paths
+      template:
+        src: aide-excludes.j2
+        dest: /etc/aide/aide.conf.d/50_aide_security_hardening_excludes
+        owner: root
+        group: root
+        mode: '0644'
+      when: (aide_exclude_paths | default([])) | length > 0
+
     - name: Initialize AIDE database (first run only)
       command: aideinit
       args:
@@ -267,10 +414,21 @@
       ignore_errors: yes
 
   handlers:
-    - name: restart ssh
+    - name: restart k3s
       systemd:
-        name: sshd
+        name: k3s
         state: restarted
+
+    - name: restart ssh
+      shell: |
+        if systemctl list-unit-files --type=service | grep -q '^sshd\.service'; then
+          systemctl restart sshd
+        elif systemctl list-unit-files --type=service | grep -q '^ssh\.service'; then
+          systemctl restart ssh
+        else
+          echo "No SSH service unit found"
+        fi
+      changed_when: true
 
     - name: restart fail2ban
       systemd:
@@ -281,4 +439,3 @@
       systemd:
         name: unattended-upgrades
         state: restarted
-

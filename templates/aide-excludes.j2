@@ -1,0 +1,4 @@
+# Managed by Ansible: exclude high-churn or host-mounted paths from AIDE.
+{% for path in aide_exclude_paths %}
+!{{ path }}
+{% endfor %}

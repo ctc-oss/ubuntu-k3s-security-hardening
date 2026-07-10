@@ -185,6 +185,17 @@
       tags:
         - severity_medium
 
+    - name: Ensure kubelet drop-in directory exists
+      file:
+        path: "{{ k3s_kubelet_hardening_config_path | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags:
+        - severity_high
+        - severity_medium
+
     - name: Install kubelet hardening drop-in
       copy:
         dest: "{{ k3s_kubelet_hardening_config_path }}"

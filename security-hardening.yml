@@ -95,6 +95,9 @@
           - rkhunter
           - aide
         state: present
+      tags:
+        - never
+        - os_hardening
 
     - name: Ensure k3s audit policy directory exists
       file:
@@ -220,6 +223,9 @@
         group: root
         mode: '0644'
       notify: restart unattended-upgrades
+      tags:
+        - never
+        - os_hardening
 
     - name: Enable automatic updates
       lineinfile:
@@ -231,6 +237,9 @@
         - 'APT::Periodic::Unattended-Upgrade "1";'
         - 'APT::Periodic::Download-Upgradeable-Packages "1";'
         - 'APT::Periodic::AutocleanInterval "7";'
+      tags:
+        - never
+        - os_hardening
 
     - name: Configure SSH daemon security settings
       lineinfile:
@@ -253,6 +262,9 @@
         - { regexp: '^#?AllowTcpForwarding', line: 'AllowTcpForwarding yes' }
         - { regexp: '^#?Banner', line: 'Banner /etc/issue.net' }
       notify: restart ssh
+      tags:
+        - never
+        - os_hardening
 
     - name: Create SSH banner
       copy:
@@ -266,6 +278,9 @@
         owner: root
         group: root
         mode: '0644'
+      tags:
+        - never
+        - os_hardening
 
     - name: Configure UFW defaults
       ufw:
@@ -276,6 +291,9 @@
         - { direction: 'incoming', policy: '{{ ufw_default_incoming }}' }
         - { direction: 'outgoing', policy: '{{ ufw_default_outgoing }}' }
         - { direction: 'routed', policy: 'deny' }
+      tags:
+        - never
+        - os_hardening
 
     - name: Allow SSH through firewall
       ufw:
@@ -284,6 +302,9 @@
         proto: "{{ item.proto }}"
         comment: "{{ item.comment }}"
       loop: "{{ ufw_allowed_ports }}"
+      tags:
+        - never
+        - os_hardening
 
     # Note: UFW automatically allows established and related connections by default
     # This is handled by UFW's default connection tracking behavior
@@ -297,12 +318,18 @@
         group: root
         mode: '0644'
       notify: restart fail2ban
+      tags:
+        - never
+        - os_hardening
 
     - name: Enable and start Fail2ban service
       systemd:
         name: fail2ban
         enabled: yes
         state: started
+      tags:
+        - never
+        - os_hardening
 
     - name: Configure sysctl security settings
       sysctl:
@@ -331,6 +358,9 @@
         - { name: 'net.ipv6.conf.default.accept_redirects', value: '0' }
         - { name: 'net.ipv6.conf.all.accept_ra', value: '0' }
         - { name: 'net.ipv6.conf.default.accept_ra', value: '0' }
+      tags:
+        - never
+        - os_hardening
 
     - name: Make sysctl settings persistent
       copy:
@@ -358,6 +388,9 @@
         owner: root
         group: root
         mode: '0644'
+      tags:
+        - never
+        - os_hardening
 
     - name: Disable unnecessary services
       systemd:
@@ -381,6 +414,9 @@
         - { path: '/etc/group', mode: '0644' }
         - { path: '/etc/gshadow', mode: '0640' }
         - { path: '/etc/sudoers', mode: '0440' }
+      tags:
+        - never
+        - os_hardening
 
     - name: Configure password policy (pwquality.conf)
       lineinfile:
@@ -398,6 +434,9 @@
         - { name: 'gecoscheck', value: '1' }
         - { name: 'dictcheck', value: '1' }
       ignore_errors: yes  # May not be available on all systems
+      tags:
+        - never
+        - os_hardening
 
     - name: Set password expiration policy
       lineinfile:
@@ -408,6 +447,9 @@
         - { regexp: '^PASS_MAX_DAYS', line: 'PASS_MAX_DAYS 90' }
         - { regexp: '^PASS_MIN_DAYS', line: 'PASS_MIN_DAYS 7' }
         - { regexp: '^PASS_WARN_AGE', line: 'PASS_WARN_AGE 14' }
+      tags:
+        - never
+        - os_hardening
 
     - name: Configure AIDE exclude paths
       template:
@@ -417,12 +459,18 @@
         group: root
         mode: '0644'
       when: (aide_exclude_paths | default([])) | length > 0
+      tags:
+        - never
+        - os_hardening
 
     - name: Initialize AIDE database (first run only)
       command: aideinit
       args:
         creates: /var/lib/aide/aide.db.new
       ignore_errors: yes
+      tags:
+        - never
+        - os_hardening
 
   handlers:
     - name: restart k3s

@@ -73,6 +73,17 @@
     k3s_scheduler_args:
       - --tls-min-version=VersionTLS12
       - --bind-address=127.0.0.1
+    k3s_etcd_args:
+      - --etcd-arg=auto-tls=false
+      - --etcd-arg=peer-auto-tls=false
+      - --etcd-arg=client-cert-auth=true
+      - --etcd-arg=peer-client-cert-auth=true
+      - --etcd-arg=trusted-ca-file=/var/lib/rancher/k3s/server/tls/etcd/server-ca.crt
+      - --etcd-arg=cert-file=/var/lib/rancher/k3s/server/tls/etcd/server-client.crt
+      - --etcd-arg=key-file=/var/lib/rancher/k3s/server/tls/etcd/server-client.key
+      - --etcd-arg=peer-trusted-ca-file=/var/lib/rancher/k3s/server/tls/etcd/peer-ca.crt
+      - --etcd-arg=peer-cert-file=/var/lib/rancher/k3s/server/tls/etcd/peer-server-client.crt
+      - --etcd-arg=peer-key-file=/var/lib/rancher/k3s/server/tls/etcd/peer-server-client.key
 
     # # AIDE configuration
     # aide_exclude_paths:
@@ -184,6 +195,15 @@
         path: "{{ k3s_service_env_path }}"
         regexp: '^K3S_KUBE_SCHEDULER_ARGS='
         line: 'K3S_KUBE_SCHEDULER_ARGS="{{ k3s_scheduler_args | join(" ") }}"'
+      notify: restart k3s
+      tags:
+        - severity_medium
+
+    - name: Configure k3s etcd arguments
+      lineinfile:
+        path: "{{ k3s_service_env_path }}"
+        regexp: '^K3S_ETCD_ARGS='
+        line: 'K3S_ETCD_ARGS="{{ k3s_etcd_args | join(" ") }}"'
       notify: restart k3s
       tags:
         - severity_medium
@@ -401,6 +421,9 @@
         - bluetooth
         - avahi-daemon
       ignore_errors: yes
+      tags:
+        - never
+        - os_hardening
 
     - name: Set restrictive file permissions on sensitive files
       file:

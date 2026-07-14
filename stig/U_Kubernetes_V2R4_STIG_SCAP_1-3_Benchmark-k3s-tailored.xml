@@ -4230,13 +4230,13 @@ By default, the API Server does not authenticate to the kubelet HTTPs endpoint. 
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24237900" version="1">
-          <filepath>/etc/systemd/system/k3s.service</filepath>
-          <pattern operation="pattern match">^[ -]*auto-tls=([[:alnum:]_]+)</pattern>
+          <filepath>/etc/systemd/system/k3s.service.env</filepath>
+          <pattern operation="pattern match">.*auto-tls=([[:alnum:]_]+).*</pattern>
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24238000" version="1">
-          <filepath>/etc/systemd/system/k3s.service</filepath>
-          <pattern operation="pattern match">^[ -]*peer-auto-tls=([[:alnum:]_]+)</pattern>
+          <filepath>/etc/systemd/system/k3s.service.env</filepath>
+          <pattern operation="pattern match">.*peer-auto-tls=([[:alnum:]_]+).*</pattern>
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24238100" version="4">
@@ -4369,8 +4369,8 @@ By default, the API Server does not authenticate to the kubelet HTTPs endpoint. 
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24242300" version="1">
-          <filepath>/etc/systemd/system/k3s.service</filepath>
-          <pattern operation="pattern match">^[ -]*client-cert-auth=([[:alnum:]_]+)</pattern>
+          <filepath>/etc/systemd/system/k3s.service.env</filepath>
+          <pattern operation="pattern match">.*client-cert-auth=([[:alnum:]_]+).*</pattern>
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24242400" version="2">
@@ -4389,43 +4389,43 @@ By default, the API Server does not authenticate to the kubelet HTTPs endpoint. 
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24242600" version="1">
-          <filepath>/etc/systemd/system/k3s.service</filepath>
-          <pattern operation="pattern match">^[ -]*peer-client-cert-auth=([[:alnum:]_]+)</pattern>
+          <filepath>/etc/systemd/system/k3s.service.env</filepath>
+          <pattern operation="pattern match">.*peer-client-cert-auth=([[:alnum:]_]+).*</pattern>
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24242700" version="1">
-          <filepath>/etc/systemd/system/k3s.service</filepath>
-          <pattern operation="pattern match">^[ -]*key-file=[^[:space:]]+</pattern>
+          <filepath>/etc/systemd/system/k3s.service.env</filepath>
+          <pattern operation="pattern match">.*(--key-file=|--etcd-arg=key-file=)[^'\"[:space:]]+.*</pattern>
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24242800" version="2">
-          <filepath>/etc/systemd/system/k3s.service</filepath>
-          <pattern operation="pattern match">^[ -]*cert-file=([[^[:space:]]]+)</pattern>
+          <filepath>/etc/systemd/system/k3s.service.env</filepath>
+          <pattern operation="pattern match">.*(--cert-file=|--etcd-arg=cert-file=)[^'\"[:space:]]+.*</pattern>
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24242900" version="1">
-          <filepath>/etc/systemd/system/k3s.service</filepath>
-          <pattern operation="pattern match">^[ -]*etcd-cafile=[^[:space:]]+</pattern>
+          <filepath>/etc/systemd/system/k3s.service.env</filepath>
+          <pattern operation="pattern match">.*(--etcd-cafile=|--trusted-ca-file=|--etcd-arg=trusted-ca-file=)[^'\"[:space:]]+.*</pattern>
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24243000" version="1">
-          <filepath>/etc/systemd/system/k3s.service</filepath>
-          <pattern operation="pattern match">^[ -]*etcd-certfile=[^[:space:]]+</pattern>
+          <filepath>/etc/systemd/system/k3s.service.env</filepath>
+          <pattern operation="pattern match">.*(--etcd-certfile=|--cert-file=|--etcd-arg=cert-file=)[^'\"[:space:]]+.*</pattern>
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24243100" version="2">
-          <filepath>/etc/systemd/system/k3s.service</filepath>
-          <pattern operation="pattern match">^[ -]*etcd-keyfile=([[^[:space:]]]+)</pattern>
+          <filepath>/etc/systemd/system/k3s.service.env</filepath>
+          <pattern operation="pattern match">.*(--etcd-keyfile=|--key-file=|--etcd-arg=key-file=)[^'\"[:space:]]+.*</pattern>
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24243200" version="1">
-          <filepath>/etc/systemd/system/k3s.service</filepath>
-          <pattern operation="pattern match">^[ -]*peer-cert-file=[^[:space:]]+</pattern>
+          <filepath>/etc/systemd/system/k3s.service.env</filepath>
+          <pattern operation="pattern match">.*(--peer-cert-file=|--etcd-arg=peer-cert-file=)[^'\"[:space:]]+.*</pattern>
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24243300" version="1">
-          <filepath>/etc/systemd/system/k3s.service</filepath>
-          <pattern operation="pattern match">^[ -]*peer-key-file=[^[:space:]]+</pattern>
+          <filepath>/etc/systemd/system/k3s.service.env</filepath>
+          <pattern operation="pattern match">.*(--peer-key-file=|--etcd-arg=peer-key-file=)[^'\"[:space:]]+.*</pattern>
           <instance datatype="int" operation="greater than or equal">1</instance>
         </textfilecontent54_object>
         <textfilecontent54_object xmlns="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" id="oval:mil.disa.stig.ind:obj:24243400" version="3">

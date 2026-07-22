@@ -412,6 +412,21 @@
         - never
         - os_hardening
 
+    - name: Configure k3s sysctl security settings
+      copy:
+        content: |
+          # K3S Security hardening settings
+          vm.overcommit_memory = 1
+          kernel.panic = 10
+          kernel.panic_on_oops = 1
+          fs.inotify.max_user_watches = 524288
+          fs.inotify.max_user_instances = 8192
+        dest: /etc/sysctl.d/99-k3s-hardening.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: apply sysctl
+
     - name: Disable unnecessary services
       systemd:
         name: "{{ item }}"
@@ -521,3 +536,7 @@
       systemd:
         name: unattended-upgrades
         state: restarted
+
+    - name: apply sysctl
+      command:
+        cmd: sysctl --system
